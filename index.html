@@ -53,10 +53,10 @@
             margin-bottom: 15px;
         }
 
-        /* Quader Farben */
-        .face-a { fill: #3b82f6; stroke: #1e3a8a; stroke-width: 2; } 
-        .face-b { fill: #fde047; stroke: #a16207; stroke-width: 2; } 
-        .face-c { fill: #f87171; stroke: #991b1b; stroke-width: 2; } 
+        /* Quader Flächen-Farben */
+        .face-a { fill: #3b82f6; stroke: #1e3a8a; stroke-width: 2; } /* Große Seiten */
+        .face-b { fill: #fde047; stroke: #a16207; stroke-width: 2; } /* Deckel/Boden */
+        .face-c { fill: #f87171; stroke: #991b1b; stroke-width: 2; } /* Kleine Seiten */
 
         .id-badge {
             background: var(--primary);
@@ -75,6 +75,7 @@
             width: 100%;
             font-size: 15px;
             background: white;
+            cursor: pointer;
         }
 
         .check-btn {
@@ -117,13 +118,20 @@
             font-size: 1.2em;
             font-weight: bold;
             cursor: pointer;
+            transition: background 0.3s;
         }
+
+        .bonus-btn:hover { background: #10b981; }
 
         #bonus-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 25px;
             margin-top: 30px;
+        }
+
+        @media print {
+            .bonus-section, .check-btn, .feedback, select { display: none !important; }
         }
     </style>
 </head>
@@ -136,16 +144,16 @@
 
     <div class="grid-container" id="net-grid"></div>
 
-    <div class="bonus-section">
-        <h2>Bereit für die Spezial-Einsätze?</h2>
-        <p>Klicke unten, um einen neuen Fall aus dem Archiv zu ziehen.</p>
-        <button class="bonus-btn" id="main-bonus-trigger">Nächsten Bonus-Fall öffnen</button>
+    <div class="bonus-section" id="bonus-area">
+        <h2>Spezial-Archiv</h2>
+        <p id="bonus-instruction">Hast du alle Standard-Fälle gelöst? Dann schalte hier die Bonus-Einsätze frei.</p>
+        <button class="bonus-btn" id="unlock-btn">Alle Bonus-Fälle freischalten</button>
         <div id="bonus-grid"></div>
     </div>
 </div>
 
 <script>
-    // STANDARD NETZE (1-12)
+    // 12 Standard-Netze
     const netsData = [
         { id: 1, type: 'valid', faces: [{x:1,y:0,w:2,h:1,t:'b'},{x:1,y:1,w:2,h:3,t:'a'},{x:1,y:4,w:2,h:1,t:'b'},{x:1,y:5,w:2,h:3,t:'a'},{x:0,y:1,w:1,h:3,t:'c'},{x:3,y:1,w:1,h:3,t:'c'}]},
         { id: 2, type: 'invalid', faces: [{x:1,y:0,w:2,h:1,t:'b'},{x:1,y:1,w:2,h:3,t:'a'},{x:1,y:4,w:2,h:3,t:'a'},{x:1,y:7,w:2,h:3,t:'a'},{x:0,y:1,w:1,h:3,t:'c'},{x:3,y:1,w:1,h:3,t:'c'}]},
@@ -161,7 +169,7 @@
         { id: 12, type: 'invalid', faces: [{x:0,y:0,w:2,h:3,t:'a'},{x:2,y:0,w:1,h:3,t:'c'},{x:0,y:3,w:2,h:1,t:'b'},{x:2,y:3,w:1,h:1,t:'c'},{x:3,y:0,w:2,h:3,t:'a'},{x:3,y:3,w:2,h:1,t:'b'}]}
     ];
 
-    // BONUS POOL
+    // 6 Bonus-Netze
     const bonusPool = [
         { id: 'b1', type: 'valid', faces: [{x:0,y:1,w:1,h:4,t:'a'},{x:1,y:1,w:2,h:4,t:'c'},{x:3,y:1,w:1,h:4,t:'a'},{x:4,y:1,w:2,h:4,t:'c'},{x:1,y:0,w:2,h:1,t:'b'},{x:1,y:5,w:2,h:1,t:'b'}]},
         { id: 'b2', type: 'invalid', faces: [{x:1,y:0,w:2,h:1,t:'b'},{x:1,y:1,w:2,h:3,t:'a'},{x:1,y:4,w:2,h:1,t:'b'},{x:1,y:5,w:2,h:3,t:'a'},{x:0,y:1,w:1,h:3,t:'c'},{x:3,y:1,w:2,h:3,t:'c'}]},
@@ -170,10 +178,6 @@
         { id: 'b5', type: 'valid', faces: [{x:2,y:0,w:2,h:1,t:'b'},{x:2,y:1,w:2,h:3,t:'a'},{x:1,y:1,w:1,h:3,t:'c'},{x:0,y:1,w:2,h:3,t:'a'},{x:0,y:4,w:2,h:1,t:'b'},{x:3,y:4,w:1,h:3,t:'c'}]},
         { id: 'b6', type: 'invalid', faces: [{x:1,y:0,w:2,h:1,t:'b'},{x:1,y:1,w:2,h:3,t:'a'},{x:3,y:1,w:2,h:3,t:'a'},{x:5,y:1,w:2,h:3,t:'a'},{x:0,y:1,w:1,h:3,t:'c'},{x:1,y:4,w:2,h:1,t:'b'}]}
     ];
-
-    // GLOBALER SPEICHER FÜR VERFÜGBARE BONUS-NETZE
-    let availableBonus = [...bonusPool];
-    let bonusCounter = 0;
 
     function createNetSVG(faces) {
         const scale = 18;
@@ -197,7 +201,7 @@
         const card = document.createElement('div');
         card.className = 'net-card';
         card.innerHTML = `
-            <div class="id-badge">${isBonus ? 'Bonus-Fall' : 'Fall ' + (index + 1)}</div>
+            <div class="id-badge">${isBonus ? 'Spezial-Fall ' + index : 'Fall ' + (index + 1)}</div>
             ${createNetSVG(net.faces)}
             <select id="select-${uniqueId}">
                 <option value="">Deine Einschätzung?</option>
@@ -219,45 +223,37 @@
             fb.style.color = "#854d0e";
             fb.style.backgroundColor = "#fef9c3";
         } else if (userVal === correctType) {
-            fb.innerHTML = "🌟 Richtig! Du hast den Fall gelöst.";
+            fb.innerHTML = "🌟 Richtig!";
             fb.style.color = "#166534";
             fb.style.backgroundColor = "#dcfce7";
         } else {
-            fb.innerHTML = "🧐 Nicht ganz. Prüfe die Regeln!";
+            fb.innerHTML = "🧐 Prüfe die Paare!";
             fb.style.color = "#991b1b";
             fb.style.backgroundColor = "#fee2e2";
         }
     }
 
-    function generateBonus() {
-        if (availableBonus.length === 0) {
-            alert("🕵️‍♂️ Alle Fälle im Archiv wurden gelöst! Fantastische Arbeit.");
-            document.getElementById('main-bonus-trigger').disabled = true;
-            document.getElementById('main-bonus-trigger').innerText = "Archiv leer";
-            return;
-        }
+    function unlockAllBonus() {
+        const grid = document.getElementById('bonus-grid');
+        const btn = document.getElementById('unlock-btn');
+        const instruction = document.getElementById('bonus-instruction');
 
-        // 1. Zufälliges Netz aus dem AKTUELLEN Vorrat wählen
-        const randomIndex = Math.floor(Math.random() * availableBonus.length);
-        const selectedNet = availableBonus[randomIndex];
+        // Alle Bonus-Netze rendern
+        bonusPool.forEach((net, i) => {
+            renderCard(net, i + 1, 'bonus-grid', true);
+        });
 
-        // 2. Dieses Netz aus dem Vorrat löschen (WICHTIG!)
-        availableBonus.splice(randomIndex, 1);
-
-        // 3. Karte anzeigen
-        bonusCounter++;
-        renderCard(selectedNet, bonusCounter, 'bonus-grid', true);
-
-        // 4. Zum neuen Rätsel scrollen
-        setTimeout(() => {
-            const grid = document.getElementById('bonus-grid');
-            grid.lastChild.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
+        // Interface anpassen
+        btn.style.display = 'none';
+        instruction.innerText = "Alle Archiv-Fälle wurden freigeschaltet. Viel Erfolg beim Ermitteln!";
+        
+        // Sanftes Scrollen
+        grid.scrollIntoView({ behavior: 'smooth' });
     }
 
     function init() {
         netsData.forEach((net, i) => renderCard(net, i, 'net-grid'));
-        document.getElementById('main-bonus-trigger').onclick = generateBonus;
+        document.getElementById('unlock-btn').onclick = unlockAllBonus;
     }
 
     window.onload = init;
